@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ccstatusline — Layout Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: 'Menlo', 'Monaco', 'SF Mono', 'Courier New', monospace;
+    font-size: 13px;
+    padding: 32px 40px;
+  }
+  h1 { color: #a78bfa; font-size: 18px; margin-bottom: 4px; }
+  .sub { color: #484f58; font-size: 12px; margin-bottom: 36px; }
+
+  .section { margin-bottom: 44px; }
+  .label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .label .tag { font-size: 9px; padding: 2px 6px; border-radius: 3px; }
+  .label.bug { color: #f87171; }
+  .label.bug .tag { background: #7f1d1d; }
+  .label.new { color: #4ade80; }
+  .label.new .tag { background: #14532d; }
+  .label.alt { color: #60a5fa; }
+  .label.alt .tag { background: #1e3a5f; }
+
+  .term { background: #161b22; border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+  .term-bar {
+    background: #1c2128; padding: 7px 12px;
+    display: flex; align-items: center; gap: 6px;
+    border-bottom: 1px solid #30363d;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot.r { background: #ff5f57; }
+  .dot.y { background: #febc2e; }
+  .dot.g { background: #28c840; }
+  .term-title { color: #484f58; font-size: 11px; margin-left: 6px; }
+  .status-area { padding: 12px 16px; }
+  .status-row { white-space: nowrap; line-height: 1.7; font-size: 13px; }
+
+  .cyan { color: #56d4dd; }
+  .yellow { color: #e3b341; }
+  .green { color: #3fb950; }
+  .bblue { color: #58a6ff; }
+  .magenta { color: #bc8cff; }
+  .white { color: #c9d1d9; }
+  .gray { color: #484f58; }
+  .dim { color: #6e7681; }
+  .sep { color: #484f58; }
+
+  .bar-g { color: #3fb950; }
+  .bar-y { color: #e3b341; }
+  .bar-r { color: #f85149; }
+  .bar-e { color: #30363d; }
+  .bar-b { color: #58a6ff; }
+  .bar-m { color: #bc8cff; }
+
+  .note {
+    margin-top: 10px; padding: 8px 12px;
+    font-size: 11px; line-height: 1.6;
+    border-left: 3px solid; border-radius: 0 4px 4px 0;
+  }
+  .note.bug { border-color: #f85149; background: #f8514910; color: #fca5a5; }
+  .note.fix { border-color: #3fb950; background: #3fb95010; color: #86efac; }
+  .note.info { border-color: #58a6ff; background: #58a6ff10; color: #93c5fd; }
+  .note strong { color: #e6edf3; }
+
+  hr { border: none; border-top: 1px solid #21262d; margin: 36px 0; }
+
+  .width-track { height: 2px; background: #21262d; border-radius: 1px; margin-top: 8px; }
+  .width-fill { height: 100%; border-radius: 1px; }
+  .width-fill.over { background: #f85149; }
+  .width-fill.ok { background: #3fb950; }
+  .width-label { font-size: 10px; color: #484f58; margin-top: 3px; text-align: right; }
+
+  .scenario { margin-top: 20px; }
+  .scenario-label { font-size: 11px; color: #8b949e; margin-bottom: 8px; font-weight: 600; }
+
+  .line-label {
+    display: inline-block;
+    font-size: 9px;
+    color: #484f58;
+    width: 20px;
+    text-align: right;
+    margin-right: 8px;
+    vertical-align: top;
+    line-height: 1.7;
+    user-select: none;
+  }
+</style>
+</head>
+<body>
+
+<h1>ccstatusline Layout Preview</h1>
+<p class="sub">Three-line layout: info → quota → summary</p>
+
+<!-- ======================== BEFORE ======================== -->
+<div class="section">
+  <div class="label bug"><span class="tag">CURRENT</span> Broken single line</div>
+  <div class="term">
+    <div class="term-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="term-title">140 cols, flex: full-minus-40 = 100 usable</span>
+    </div>
+    <div class="status-area">
+      <div class="status-row">
+        <span class="line-label">L1</span>
+        <span class="cyan">Opus 4.6</span>
+        <span class="sep"> | </span>
+        <span class="yellow">&lt;1m</span>
+        <span class="sep"> | </span>
+        <span class="green">[<span class="bar-g">██</span><span class="bar-e">░░░░░░░░░░░░░░</span>] 16k/200k (8%)</span>
+        <span class="sep"> | </span>
+        <span class="green">$0.05</span>
+        <span class="sep"> | </span>
+        <span class="sep"> | </span>
+        <span class="bblue">20.0%</span>
+        <span class="sep"> | </span>
+        <span class="magenta">22.0%</span><span class="white">Fixed per-session status handling</span>
+      </div>
+    </div>
+  </div>
+  <div class="note bug">
+    Double separator &bull; No labels on percentages &bull; Missing separator before summary &bull; Stale summary from another session &bull; Line overflows
+  </div>
+  <div class="width-track"><div class="width-fill over" style="width:100%"></div></div>
+  <div class="width-label">~127 chars / 100 usable — overflows</div>
+</div>
+
+<hr>
+
+<!-- ======================== PROPOSED: 3-LINE ======================== -->
+<div class="section">
+  <div class="label new"><span class="tag">NEW</span> Three-line layout — active session</div>
+  <div class="term">
+    <div class="term-bar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="term-title">Session in progress — 1h43m, 68% of 5-hour block used</span>
+    </div>
+    <div class="status-area">
+      <!-- Line 1: Model + Clock + Cost + Context Window -->
+      <div class="status-row">
+        <span class="line-label">L1</span>
+        <span class="cyan">Opus 4.6</span>
+        <span class="sep"> | </span>
+        <span class="yellow">1h 43m</span>
+        <span class="sep"> | </span>
+        <span class="green">$17.86</span>
+        <span class="sep"> | </span>
+        <span class="green">[<span class="bar-g">████████████</span><span class="bar-e">░░░░░░░░░░░░░░░░░░░░</span>] 67k/200k (34%)</span>
+      </div>
+      <!-- Line 2: 5-hour session + weekly session -->
+      <div class="status-row">
+        <span class="line-label">L2</span>
+        <span class="bblue">Session: <span class="bar-g">████████████</span><span class="bar-y">████</span><span class="bar-r">██</span><span class="bar-e">░░</span> 68.0%<span class="dim"> · 1h 36m left</span></span>
+        <span class="sep"> | </span>
+        <span class="magenta">Weekly: <span class="bar-m">████</span><span class="bar-e">░░░░░░░░░░░░</span> 24.0%<span class="dim"> · resets Mon 9am</span></span>
+      </div>
+      <!-- Line 3: Summary -->
+      <div class="status-row">
+        <span class="line-label">L3</span>
+        <span class="white">Refactoring sidebar state to be session-scoped and removing stale global fallback</span>
+      </div>
+    </div>
+  </div>
+  <div class="note fix">
+    <strong>Line 1:</strong> Model · session clock · cost · context window bar<br>
+    <strong>Line 2:</strong> 5-hour session quota (color-coded bar + % + time remaining) · weekly quota (bar + % + reset day)<br>
+    <strong>Line 3:</strong> Live session summary from transcript — auto-generated, per-session, rename-safe
+  </div>
+</div>
+
+<!-- Scenario: new session, low usage -->
+<div class="section">
+  <div class="scenario">
+    <div class="scenario-label">New session — just started, low usage</div>
+    <div class="term">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">Brand new session</span>
+      </div>
+      <div class="status-area">
+        <div class="status-row">
+          <span class="line-label">L1</span>
+          <span class="cyan">Opus 4.6</span>
+          <span class="sep"> | </span>
+          <span class="yellow">&lt;1m</span>
+          <span class="sep"> | </span>
+          <span class="green">$0.00</span>
+          <span class="sep"> | </span>
+          <span class="green">[<span class="bar-e">░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░</span>] 0k/200k (0%)</span>
+        </div>
+        <div class="status-row">
+          <span class="line-label">L2</span>
+          <span class="bblue">Session: <span class="bar-g">████</span><span class="bar-e">░░░░░░░░░░░░</span> 20.0%<span class="dim"> · 4h left</span></span>
+          <span class="sep"> | </span>
+          <span class="magenta">Weekly: <span class="bar-m">███</span><span class="bar-e">░░░░░░░░░░░░░</span> 22.0%<span class="dim"> · resets Thu 2pm</span></span>
+        </div>
+      </div>
+    </div>
+    <div class="note info" style="margin-top: 6px;">
+      Line 3 (summary) cleanly absent — no stale data from other sessions. Only appears once transcript has content.
+    </div>
+  </div>
+</div>
+
+<!-- Scenario: high usage warning -->
+<div class="section">
+  <div class="scenario">
+    <div class="scenario-label">High usage — approaching 5-hour limit</div>
+    <div class="term">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">Running hot — 92% session usage</span>
+      </div>
+      <div class="status-area">
+        <div class="status-row">
+          <span class="line-label">L1</span>
+          <span class="cyan">Sonnet 4.5</span>
+          <span class="sep"> | </span>
+          <span class="yellow">4h 12m</span>
+          <span class="sep"> | </span>
+          <span class="green">$42.30</span>
+          <span class="sep"> | </span>
+          <span class="green">[<span class="bar-g">██████████████████████████</span><span class="bar-y">████</span><span class="bar-e">░░</span>] 180k/200k (90%)</span>
+        </div>
+        <div class="status-row">
+          <span class="line-label">L2</span>
+          <span class="bblue">Session: <span class="bar-g">██████████</span><span class="bar-y">███</span><span class="bar-r">██</span><span class="bar-e">░</span> 92.0%<span class="dim"> · 24m left</span></span>
+          <span class="sep"> | </span>
+          <span class="magenta">Weekly: <span class="bar-m">████████████</span><span class="bar-e">░░░░</span> 75.0%<span class="dim"> · resets Mon 9am</span></span>
+        </div>
+        <div class="status-row">
+          <span class="line-label">L3</span>
+          <span class="white">Implementing the pagination API with cursor-based navigation</span>
+        </div>
+      </div>
+    </div>
+    <div class="note info" style="margin-top: 6px;">
+      Color-coded bars shift green→yellow→red as usage climbs. "24m left" gives you a clear sense of urgency.
+    </div>
+  </div>
+</div>
+
+<!-- Scenario: narrow terminal -->
+<div class="section">
+  <div class="scenario">
+    <div class="scenario-label">Narrow terminal (~80 cols) — responsive hiding per line</div>
+    <div class="term">
+      <div class="term-bar">
+        <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+        <span class="term-title">80 cols, flex: full-minus-40 = 40 usable</span>
+      </div>
+      <div class="status-area">
+        <div class="status-row">
+          <span class="line-label">L1</span>
+          <span class="cyan">Opus 4.6</span>
+          <span class="sep"> | </span>
+          <span class="yellow">1h 43m</span>
+          <span class="sep"> | </span>
+          <span class="green">$17.86</span>
+        </div>
+        <div class="status-row">
+          <span class="line-label">L2</span>
+          <span class="bblue">Session: <span class="bar-g">████████████</span><span class="bar-y">████</span><span class="bar-r">██</span><span class="bar-e">░░</span> 68.0%</span>
+        </div>
+        <div class="status-row">
+          <span class="line-label">L3</span>
+          <span class="white">Refactoring sidebar state</span>
+        </div>
+      </div>
+    </div>
+    <div class="note info" style="margin-top: 6px;">
+      Each line independently hides rightmost widgets: L1 drops context bar, L2 drops weekly + reset times, L3 truncates summary. No wrapping.
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<!-- ======================== LAYOUT BREAKDOWN ======================== -->
+<div class="section">
+  <div class="label" style="color: #a78bfa;"><span class="tag" style="background:#3b2d6e;">LAYOUT</span> Widget placement</div>
+  <table style="width:100%; border-collapse:collapse; font-size:12px;">
+    <tr style="color:#8b949e; border-bottom:1px solid #21262d;">
+      <td style="padding:8px 0; width:60px;">Line</td>
+      <td style="padding:8px 0;">Widgets</td>
+      <td style="padding:8px 0;">Purpose</td>
+    </tr>
+    <tr style="border-bottom:1px solid #21262d15;">
+      <td style="padding:6px 0; color:#4ade80; font-weight:600;">L1</td>
+      <td style="padding:6px 0; color:#c9d1d9;">model | session-clock | session-cost | context-bar</td>
+      <td style="padding:6px 0; color:#8b949e;">Session info + context window</td>
+    </tr>
+    <tr style="border-bottom:1px solid #21262d15;">
+      <td style="padding:6px 0; color:#58a6ff; font-weight:600;">L2</td>
+      <td style="padding:6px 0; color:#c9d1d9;">session-usage (bar+reset) | weekly-usage (bar+reset)</td>
+      <td style="padding:6px 0; color:#8b949e;">Quota meters with time remaining</td>
+    </tr>
+    <tr>
+      <td style="padding:6px 0; color:#bc8cff; font-weight:600;">L3</td>
+      <td style="padding:6px 0; color:#c9d1d9;">status-summary</td>
+      <td style="padding:6px 0; color:#8b949e;">Live session summary (from transcript)</td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>

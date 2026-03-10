@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dashboardState 原理图</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'PingFang SC', sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    padding: 40px 20px;
+    min-height: 100vh;
+  }
+  h1 {
+    text-align: center;
+    font-size: 32px;
+    color: #58a6ff;
+    margin-bottom: 8px;
+  }
+  .subtitle {
+    text-align: center;
+    color: #8b949e;
+    font-size: 16px;
+    margin-bottom: 48px;
+  }
+
+  /* ─── Section titles ─── */
+  .section-title {
+    font-size: 22px;
+    color: #f0883e;
+    margin: 48px auto 24px;
+    max-width: 960px;
+    padding-left: 12px;
+    border-left: 4px solid #f0883e;
+  }
+
+  /* ─── The interface card ─── */
+  .interface-card {
+    max-width: 620px;
+    margin: 0 auto 48px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .interface-header {
+    background: #1f2937;
+    padding: 14px 20px;
+    font-size: 14px;
+    color: #7ee787;
+    font-family: 'SF Mono', Menlo, monospace;
+  }
+  .interface-body {
+    padding: 20px;
+  }
+  .field {
+    display: flex;
+    align-items: flex-start;
+    margin-bottom: 14px;
+    gap: 12px;
+  }
+  .field:last-child { margin-bottom: 0; }
+  .field-name {
+    font-family: 'SF Mono', Menlo, monospace;
+    color: #79c0ff;
+    font-size: 14px;
+    min-width: 180px;
+    flex-shrink: 0;
+  }
+  .field-type {
+    font-family: 'SF Mono', Menlo, monospace;
+    color: #8b949e;
+    font-size: 13px;
+    min-width: 120px;
+    flex-shrink: 0;
+  }
+  .field-desc {
+    font-size: 13px;
+    color: #c9d1d9;
+    line-height: 1.5;
+  }
+  .highlight { color: #ffa657; font-weight: 600; }
+  .highlight-green { color: #7ee787; font-weight: 600; }
+
+  /* ─── Flow diagram ─── */
+  .flow-container {
+    max-width: 960px;
+    margin: 0 auto 48px;
+    position: relative;
+  }
+
+  .flow-row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .flow-box {
+    padding: 16px 22px;
+    border-radius: 10px;
+    font-size: 14px;
+    line-height: 1.6;
+    text-align: center;
+    position: relative;
+    min-width: 180px;
+    max-width: 320px;
+  }
+  .flow-box.source {
+    background: linear-gradient(135deg, #1a2332, #1e293b);
+    border: 2px solid #3b82f6;
+    color: #93c5fd;
+  }
+  .flow-box.process {
+    background: linear-gradient(135deg, #1a2320, #1e2e26);
+    border: 2px solid #22c55e;
+    color: #86efac;
+  }
+  .flow-box.storage {
+    background: linear-gradient(135deg, #2a1a2e, #2e1e35);
+    border: 2px solid #a855f7;
+    color: #d8b4fe;
+  }
+  .flow-box.output {
+    background: linear-gradient(135deg, #2a2a1a, #352e1e);
+    border: 2px solid #eab308;
+    color: #fde68a;
+  }
+  .flow-box .box-title {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  .flow-box .box-detail {
+    font-size: 12px;
+    opacity: 0.85;
+  }
+
+  .arrow-down {
+    display: flex;
+    justify-content: center;
+    margin: 4px 0;
+    font-size: 22px;
+    color: #484f58;
+  }
+  .arrow-label {
+    text-align: center;
+    font-size: 12px;
+    color: #8b949e;
+    margin: -2px 0 4px;
+    font-style: italic;
+  }
+
+  /* ─── Timeline ─── */
+  .timeline {
+    max-width: 800px;
+    margin: 0 auto 48px;
+    position: relative;
+    padding-left: 32px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(to bottom, #3b82f6, #22c55e, #eab308, #a855f7);
+    border-radius: 3px;
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 28px;
+    padding: 16px 20px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 22px;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    border: 3px solid;
+  }
+  .timeline-item:nth-child(1)::before { border-color: #3b82f6; background: #1a2332; }
+  .timeline-item:nth-child(2)::before { border-color: #22c55e; background: #1a2320; }
+  .timeline-item:nth-child(3)::before { border-color: #eab308; background: #2a2a1a; }
+  .timeline-item:nth-child(4)::before { border-color: #a855f7; background: #2a1a2e; }
+  .timeline-item:nth-child(5)::before { border-color: #ef4444; background: #2a1a1a; }
+  .timeline-label {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 6px;
+  }
+  .timeline-desc {
+    font-size: 13px;
+    color: #8b949e;
+    line-height: 1.6;
+  }
+  .timeline-code {
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 12px;
+    color: #79c0ff;
+    background: #0d1117;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin-top: 8px;
+    display: block;
+    overflow-x: auto;
+  }
+
+  /* ─── Summary table ─── */
+  .summary-grid {
+    max-width: 800px;
+    margin: 0 auto 48px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .summary-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 20px;
+  }
+  .summary-card .card-title {
+    font-family: 'SF Mono', Menlo, monospace;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .summary-card .card-body {
+    font-size: 13px;
+    color: #8b949e;
+    line-height: 1.6;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .tag-blue { background: #1a2332; color: #58a6ff; border: 1px solid #264d7d; }
+  .tag-green { background: #1a2320; color: #7ee787; border: 1px solid #26523e; }
+  .tag-yellow { background: #2a2a1a; color: #e3b341; border: 1px solid #5d4e14; }
+  .tag-purple { background: #2a1a2e; color: #d2a8ff; border: 1px solid #553c6e; }
+
+  /* ─── Full-width diagram ─── */
+  .full-flow {
+    max-width: 960px;
+    margin: 0 auto 48px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 12px;
+    padding: 32px 24px;
+    overflow-x: auto;
+  }
+  .full-flow-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #58a6ff;
+    margin-bottom: 24px;
+    text-align: center;
+  }
+  .pipe {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+  .pipe-node {
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-family: 'SF Mono', Menlo, monospace;
+    white-space: nowrap;
+  }
+  .pipe-arrow {
+    color: #484f58;
+    font-size: 18px;
+  }
+  .pipe-node.blue { background: #1a2332; color: #79c0ff; border: 1px solid #264d7d; }
+  .pipe-node.green { background: #1a2320; color: #7ee787; border: 1px solid #26523e; }
+  .pipe-node.yellow { background: #2a2a1a; color: #e3b341; border: 1px solid #5d4e14; }
+  .pipe-node.purple { background: #2a1a2e; color: #d2a8ff; border: 1px solid #553c6e; }
+  .pipe-node.red { background: #2a1a1a; color: #f97583; border: 1px solid #6e3c3c; }
+
+  .note-box {
+    max-width: 800px;
+    margin: 0 auto 32px;
+    padding: 16px 20px;
+    background: #1a2332;
+    border: 1px solid #264d7d;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #93c5fd;
+    line-height: 1.6;
+  }
+  .note-box strong { color: #58a6ff; }
+</style>
+</head>
+<body>
+
+<h1>dashboardState 全解</h1>
+<p class="subtitle">它是什么、怎么来的、怎么用的 — 一张图说清楚</p>
+
+<!-- ========== 1. 数据结构 ========== -->
+<div class="section-title">1. dashboardState 长什么样？</div>
+
+<div class="interface-card">
+  <div class="interface-header">interface DashboardState &nbsp;·&nbsp; src/types/DashboardState.ts</div>
+  <div class="interface-body">
+    <div class="field">
+      <span class="field-name">projectLabel</span>
+      <span class="field-type">string | null</span>
+      <span class="field-desc">项目名（取自工作目录的 basename，如 <span class="highlight">"ccdash"</span>）</span>
+    </div>
+    <div class="field">
+      <span class="field-name highlight">goalSummary</span>
+      <span class="field-type">string | null</span>
+      <span class="field-desc">本次会话的 <span class="highlight-green">稳定目标</span>（由 Claude 自己写入，如 "为状态栏添加响应式布局"）</span>
+    </div>
+    <div class="field">
+      <span class="field-name">userTurnSummaries</span>
+      <span class="field-type">string[]</span>
+      <span class="field-desc">每次用户发消息时记录的摘要列表（按时间顺序）</span>
+    </div>
+    <div class="field">
+      <span class="field-name highlight">lastConclusion</span>
+      <span class="field-type">string | null</span>
+      <span class="field-desc"><span class="highlight-green">最新结论</span> — Claude 最近一次回复的摘要，或 <code>--now</code> 写入的值</span>
+    </div>
+    <div class="field">
+      <span class="field-name">currentFocus</span>
+      <span class="field-type">string | null</span>
+      <span class="field-desc">当前焦点 — 通常等于 lastConclusion，回退到最后一条 userTurnSummary</span>
+    </div>
+    <div class="field">
+      <span class="field-name">transcriptMtime</span>
+      <span class="field-type">number | null</span>
+      <span class="field-desc">transcript 文件的最后修改时间（用于判断是否需要重新解析）</span>
+    </div>
+    <div class="field">
+      <span class="field-name">updatedAt</span>
+      <span class="field-type">string | null</span>
+      <span class="field-desc">最后更新的 ISO 时间戳</span>
+    </div>
+  </div>
+</div>
+
+<div class="note-box">
+  <strong>一句话总结：</strong>
+  dashboardState 是一个 <strong>会话级别的摘要对象</strong>，记录了「你在做什么」（goal）和「做到哪了」（now/lastConclusion）。
+  它让状态栏不只显示 token 和 model，还能显示 <strong>当前任务语义</strong>。
+</div>
+
+<!-- ========== 2. 数据从哪来？ ========== -->
+<div class="section-title">2. 数据从哪来？（三个数据源）</div>
+
+<div class="flow-container">
+  <div class="flow-row">
+    <div class="flow-box source">
+      <div class="box-title">① Claude 主动写入</div>
+      <div class="box-detail">
+        CLAUDE.md 里指示 Claude 每次回复后调用：<br>
+        <code style="color:#fde68a">--write-session-status --goal "..." --now "..."</code><br>
+        写到 <code>~/.claude/status/{sessionId}.json</code>
+      </div>
+    </div>
+    <div class="flow-box source">
+      <div class="box-title">② 用户发消息时</div>
+      <div class="box-detail">
+        UserPromptSubmit hook 触发<br>
+        <code style="color:#fde68a">recordUserPromptSummary()</code><br>
+        记录用户消息摘要到 userTurnSummaries
+      </div>
+    </div>
+    <div class="flow-box source">
+      <div class="box-title">③ Transcript 文件</div>
+      <div class="box-detail">
+        解析 Claude Code 的 JSONL 对话记录<br>
+        <code style="color:#fde68a">getLastAssistantSummary()</code><br>
+        提取最后一条助手回复摘要
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 3. 完整数据流 ========== -->
+<div class="section-title">3. 完整数据流（从写入到显示）</div>
+
+<div class="full-flow">
+  <div class="full-flow-title">写入流程（数据怎么存进去）</div>
+  <div class="pipe">
+    <span class="pipe-node blue">Claude 回复完毕</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node green">执行 --write-session-status</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node yellow">writeSessionStatusFile()</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node purple">~/.claude/status/{id}.json</span>
+  </div>
+  <div style="text-align:center;color:#8b949e;font-size:12px;margin: 4px 0 16px">
+    写入 goal 和 now 两个字段
+  </div>
+
+  <div class="pipe">
+    <span class="pipe-node blue">用户发消息</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node green">UserPromptSubmit hook</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node yellow">recordUserPromptSummary()</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node purple">~/.cache/ccdash/sessions/{id}.json</span>
+  </div>
+  <div style="text-align:center;color:#8b949e;font-size:12px;margin: 4px 0 24px">
+    追加 userTurnSummaries，更新 currentFocus
+  </div>
+
+  <hr style="border-color:#30363d;margin:24px 0">
+
+  <div class="full-flow-title">读取流程（状态栏怎么拿到数据）</div>
+  <div class="pipe">
+    <span class="pipe-node blue">Claude Code 管道输入 JSON</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node green">ccstatusline.ts (主入口)</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node yellow">getDashboardState(data)</span>
+  </div>
+  <div style="height: 8px"></div>
+  <div class="pipe">
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-arrow">↓</span>
+    <span class="pipe-node red" style="font-size:11px">合并三个数据源 → DashboardState</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node purple">context.dashboardState</span>
+  </div>
+  <div style="height: 8px"></div>
+  <div class="pipe">
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-arrow">↓</span>
+  </div>
+  <div class="pipe">
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-arrow" style="visibility:hidden">→</span>
+    <span class="pipe-node yellow">StatusSummaryWidget.render()</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node green" style="font-size:11px">"Goal: 为状态栏添加响应式布局"</span>
+    <span class="pipe-arrow">→</span>
+    <span class="pipe-node blue">终端状态栏 ✨</span>
+  </div>
+</div>
+
+<!-- ========== 4. 什么时候更新？ ========== -->
+<div class="section-title">4. 什么时候更新？（生命周期时间线）</div>
+
+<div class="timeline">
+  <div class="timeline-item">
+    <div class="timeline-label" style="color:#58a6ff">🔵 会话开始</div>
+    <div class="timeline-desc">
+      状态文件不存在，<code>getDashboardState()</code> 返回空/null。<br>
+      状态栏的 StatusSummary widget 什么也不显示。
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="timeline-label" style="color:#7ee787">🟢 用户发出第一条消息</div>
+    <div class="timeline-desc">
+      UserPromptSubmit hook 触发 → <code>recordUserPromptSummary()</code><br>
+      创建 <code>~/.cache/ccdash/sessions/{id}.json</code>，写入第一条 userTurnSummary。
+    </div>
+    <code class="timeline-code">{ userTurnSummaries: ["dashboardState 是什么"], currentFocus: "dashboardState 是什么" }</code>
+  </div>
+
+  <div class="timeline-item">
+    <div class="timeline-label" style="color:#e3b341">🟡 Claude 回复完毕</div>
+    <div class="timeline-desc">
+      Claude 按照 CLAUDE.md 指示执行 <code>--write-session-status</code>，写入 goal 和 now。<br>
+      同时，transcript 文件被更新。
+    </div>
+    <code class="timeline-code">~/.claude/status/{id}.json → { goal: "理解 dashboardState 原理", now: "已生成原理图" }</code>
+  </div>
+
+  <div class="timeline-item">
+    <div class="timeline-label" style="color:#d2a8ff">🟣 下次状态栏刷新</div>
+    <div class="timeline-desc">
+      Claude Code 管道调用 ccstatusline → <code>getDashboardState()</code> 合并：<br>
+      <ol style="margin:8px 0 0 20px">
+        <li>读取 <code>~/.cache/ccdash/sessions/{id}.json</code>（缓存状态）</li>
+        <li>读取 <code>~/.claude/status/{id}.json</code>（Claude 写入的 goal/now）</li>
+        <li>检查 transcript 文件的 mtime，按需解析新摘要</li>
+        <li>合并后写回缓存</li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="timeline-item">
+    <div class="timeline-label" style="color:#f97583">🔴 持续对话中…</div>
+    <div class="timeline-desc">
+      每次用户发消息 → 追加 userTurnSummary<br>
+      每次 Claude 回复 → 更新 goal / now<br>
+      每次状态栏刷新 → 重新合并三个数据源<br>
+      <span class="highlight">goalSummary 一般只在第一轮设定，很少变</span>；
+      <span class="highlight-green">lastConclusion 每轮都变</span>。
+    </div>
+  </div>
+</div>
+
+<!-- ========== 5. goalSummary vs lastConclusion ========== -->
+<div class="section-title">5. goalSummary 和 lastConclusion 的区别</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="card-title" style="color:#ffa657">goalSummary</div>
+    <div class="card-body">
+      <span class="tag tag-yellow">稳定</span> <span class="tag tag-blue">会话级</span><br><br>
+      整个会话的 <strong style="color:#ffa657">目标</strong>。<br>
+      第一轮由 Claude 写入，之后很少变。<br><br>
+      来源：<code style="color:#79c0ff">--goal "..."</code><br>
+      存储：<code style="color:#79c0ff">~/.claude/status/{id}.json</code><br><br>
+      例如：<span style="color:#e3b341">"为状态栏添加响应式布局"</span><br><br>
+      显示为：<span style="color:#7ee787">Goal: 为状态栏添加响应式布局</span>
+    </div>
+  </div>
+  <div class="summary-card">
+    <div class="card-title" style="color:#7ee787">lastConclusion</div>
+    <div class="card-body">
+      <span class="tag tag-green">动态</span> <span class="tag tag-purple">轮次级</span><br><br>
+      最新的 <strong style="color:#7ee787">进度/状态</strong>。<br>
+      每次 Claude 回复后都可能更新。<br><br>
+      来源：<code style="color:#79c0ff">--now "..."</code> 或 transcript 解析<br>
+      存储：缓存 + status 文件<br><br>
+      例如：<span style="color:#e3b341">"已完成 renderer 重构，测试通过"</span><br><br>
+      显示为：<span style="color:#7ee787">Now: 已完成 renderer 重构，测试通过</span>
+    </div>
+  </div>
+</div>
+
+<div class="note-box">
+  <strong>打比方：</strong>
+  <code>goalSummary</code> 像是你的 <strong>任务标题</strong>（"修复登录页 bug"），一旦定下来就不会变。<br>
+  <code>lastConclusion</code> 像是你的 <strong>实时状态</strong>（"正在调试 OAuth 回调"），每做一步就会更新。<br><br>
+  两者合在一起，状态栏就能同时告诉你 <strong>"你要做什么"</strong> 和 <strong>"做到哪了"</strong>。
+</div>
+
+<!-- ========== 6. 存储位置 ========== -->
+<div class="section-title">6. 存储在哪里？</div>
+
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="card-title" style="color:#a855f7">Session Status File</div>
+    <div class="card-body">
+      路径：<code style="color:#d2a8ff">~/.claude/status/{sessionId}.json</code><br><br>
+      内容：<code>{ goal, now, updatedAt }</code><br><br>
+      <span class="tag tag-purple">Claude 写入</span>
+      <span class="tag tag-blue">简洁</span><br><br>
+      这是 Claude 通过 <code>--write-session-status</code> 直接写入的文件，只有 goal 和 now 两个语义字段。
+    </div>
+  </div>
+  <div class="summary-card">
+    <div class="card-title" style="color:#3b82f6">Session State Cache</div>
+    <div class="card-body">
+      路径：<code style="color:#93c5fd">~/.cache/ccdash/sessions/{sessionId}.json</code><br><br>
+      内容：完整的 <code>DashboardState</code><br><br>
+      <span class="tag tag-blue">自动维护</span>
+      <span class="tag tag-green">合并后</span><br><br>
+      这是 ccdash 自己维护的缓存，合并了 status file、transcript、用户消息摘要的完整状态。
+    </div>
+  </div>
+</div>
+
+<!-- ========== 7. 关键函数 ========== -->
+<div class="section-title">7. 关键函数一览</div>
+
+<div class="interface-card" style="max-width: 800px">
+  <div class="interface-header">核心函数 · src/utils/session-state.ts & session-status-file.ts</div>
+  <div class="interface-body">
+    <div class="field">
+      <span class="field-name" style="color:#ffa657">getDashboardState()</span>
+      <span class="field-desc">主入口。合并三个数据源，返回最终的 DashboardState。每次状态栏渲染时调用。</span>
+    </div>
+    <div class="field">
+      <span class="field-name" style="color:#7ee787">recordUserPromptSummary()</span>
+      <span class="field-desc">用户发消息时调用。提取消息摘要，追加到 userTurnSummaries。</span>
+    </div>
+    <div class="field">
+      <span class="field-name" style="color:#79c0ff">writeSessionStatusFile()</span>
+      <span class="field-desc">Claude 通过 CLI 写入 goal/now 时调用。写到 ~/.claude/status/。</span>
+    </div>
+    <div class="field">
+      <span class="field-name" style="color:#d2a8ff">readSessionStatusFile()</span>
+      <span class="field-desc">读取 Claude 写入的 status 文件。支持 JSON 和 TXT 两种格式。</span>
+    </div>
+    <div class="field">
+      <span class="field-name" style="color:#f97583">refreshStateFromTranscript()</span>
+      <span class="field-desc">检查 transcript 文件是否有更新（比对 mtime），有的话重新解析最后一条助手摘要。</span>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;color:#484f58;margin:48px 0 24px;font-size:13px">
+  — ccdash dashboardState 原理图 · 2026-03-09 —
+</div>
+
+</body>
+</html>

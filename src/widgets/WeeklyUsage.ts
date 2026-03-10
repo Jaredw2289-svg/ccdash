@@ -1,0 +1,105 @@
+import type { RenderContext } from '../types/RenderContext';
+import type { Settings } from '../types/Settings';
+import type {
+    CustomKeybind,
+    Widget,
+    WidgetEditorDisplay,
+    WidgetItem
+} from '../types/Widget';
+import {
+    formatResetDay,
+    getUsageErrorMessage,
+    makeUsageProgressBar
+} from '../utils/usage';
+
+import { formatRawOrLabeledValue } from './shared/raw-or-labeled';
+import {
+    cycleUsageDisplayMode,
+    getUsageDisplayMode,
+    getUsageDisplayModifierText,
+    getUsageProgressBarWidth,
+    isUsageInverted,
+    isUsageProgressMode,
+    toggleUsageInverted
+} from './shared/usage-display';
+
+export class WeeklyUsageWidget implements Widget {
+    getDefaultColor(): string { return 'brightBlue'; }
+    getDescription(): string { return 'Shows weekly API usage percentage'; }
+    getDisplayName(): string { return 'Weekly Usage'; }
+    getCategory(): string { return 'Usage'; }
+
+    getEditorDisplay(item: WidgetItem): WidgetEditorDisplay {
+        return {
+            displayText: this.getDisplayName(),
+            modifierText: getUsageDisplayModifierText(item)
+        };
+    }
+
+    handleEditorAction(action: string, item: WidgetItem): WidgetItem | null {
+        if (action === 'toggle-progress') {
+            return cycleUsageDisplayMode(item);
+        }
+
+        if (action === 'toggle-invert') {
+            return toggleUsageInverted(item);
+        }
+
+        return null;
+    }
+
+    render(item: WidgetItem, context: RenderContext, settings: Settings): string | null {
+        const displayMode = getUsageDisplayMode(item);
+        const inverted = isUsageInverted(item);
+        const showReset = item.metadata?.showReset === 'true';
+        const colorCoded = item.metadata?.colorCoded === 'true';
+
+        if (context.isPreview) {
+            const previewPercent = 12;
+            const renderedPercent = inverted ? 100 - previewPercent : previewPercent;
+
+            if (isUsageProgressMode(displayMode)) {
+                const width = getUsageProgressBarWidth(displayMode);
+                let progressDisplay = `${makeUsageProgressBar(renderedPercent, width, colorCoded)} ${renderedPercent.toFixed(1)}%`;
+                if (showReset) {
+                    progressDisplay += ' \u00b7 resets Mon 9am';
+                }
+                return formatRawOrLabeledValue(item, 'Weekly: ', progressDisplay);
+            }
+
+            return formatRawOrLabeledValue(item, 'Weekly: ', `${previewPercent.toFixed(1)}%`);
+        }
+
+        const data = context.usageData ?? {};
+        if (data.error)
+            return getUsageErrorMessage(data.error);
+        if (data.weeklyUsage === undefined)
+            return null;
+
+        const percent = Math.max(0, Math.min(100, data.weeklyUsage));
+        if (isUsageProgressMode(displayMode)) {
+            const width = getUsageProgressBarWidth(displayMode);
+            const renderedPercent = inverted ? 100 - percent : percent;
+            let progressDisplay = `${makeUsageProgressBar(renderedPercent, width, colorCoded)} ${renderedPercent.toFixed(1)}%`;
+            if (showReset && data.weeklyResetAt) {
+                const resetDay = formatResetDay(data.weeklyResetAt);
+                if (resetDay) {
+                    progressDisplay += ` \u00b7 resets ${resetDay}`;
+                }
+            }
+            return formatRawOrLabeledValue(item, 'Weekly: ', progressDisplay);
+        }
+
+        return formatRawOrLabeledValue(item, 'Weekly: ', `${percent.toFixed(1)}%`);
+    }
+
+    getCustomKeybinds(): CustomKeybind[] {
+        return [
+            { key: 'p', label: '(p)rogress toggle', action: 'toggle-progress' },
+            { key: 'v', label: 'in(v)ert fill', action: 'toggle-invert' }
+        ];
+    }
+
+    supportsRawValue(): boolean { return true; }
+    supportsColors(item: WidgetItem): boolean { return true; }
+}
