@@ -20,6 +20,22 @@ function getClaudeSettingsPath(): string {
     return path.join(testClaudeConfigDir, 'settings.json');
 }
 
+function writeClaudeSettings(content: Record<string, unknown>): void {
+    const settingsPath = getClaudeSettingsPath();
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(settingsPath, JSON.stringify(content, null, 2), 'utf-8');
+}
+
+interface SavedHooksFile { hooks?: Record<string, Record<string, unknown>[]> }
+
+function getSessionStartHooks(command: string): Record<string, unknown>[] {
+    return ['startup', 'resume', 'clear', 'compact'].map(matcher => ({
+        _tag: 'ccstatusline-managed',
+        matcher,
+        hooks: [{ type: 'command', command }]
+    }));
+}
+
 describe('syncWidgetHooks', () => {
     beforeEach(() => {
         testClaudeConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ccstatusline-hooks-'));
@@ -72,6 +88,64 @@ describe('syncWidgetHooks', () => {
                 {
                     matcher: 'Other',
                     hooks: [{ type: 'command', command: 'keep-command' }]
+                }
+            ]
+        });
+    });
+
+    it('always installs UserPromptSubmit when a status line command exists', async () => {
+        writeClaudeSettings({
+            statusLine: {
+                type: 'command',
+                command: 'npx -y dashcc@latest'
+            }
+        });
+
+        await syncWidgetHooks(DEFAULT_SETTINGS);
+
+        const saved = JSON.parse(fs.readFileSync(getClaudeSettingsPath(), 'utf-8')) as SavedHooksFile;
+
+        expect(saved.hooks).toEqual({
+            SessionStart: getSessionStartHooks('npx -y dashcc@latest --hook'),
+            UserPromptSubmit: [
+                {
+                    _tag: 'ccstatusline-managed',
+                    hooks: [{ type: 'command', command: 'npx -y dashcc@latest --hook' }]
+                }
+            ]
+        });
+    });
+
+    it('dedupes UserPromptSubmit while keeping widget-managed hooks', async () => {
+        writeClaudeSettings({
+            statusLine: {
+                type: 'command',
+                command: 'npx -y dashcc@latest'
+            }
+        });
+
+        const settingsWithSkills = {
+            ...DEFAULT_SETTINGS,
+            lines: [[{ id: 'skills-1', type: 'skills' }], [], []]
+        };
+
+        await syncWidgetHooks(settingsWithSkills);
+
+        const saved = JSON.parse(fs.readFileSync(getClaudeSettingsPath(), 'utf-8')) as SavedHooksFile;
+
+        expect(saved.hooks).toEqual({
+            SessionStart: getSessionStartHooks('npx -y dashcc@latest --hook'),
+            UserPromptSubmit: [
+                {
+                    _tag: 'ccstatusline-managed',
+                    hooks: [{ type: 'command', command: 'npx -y dashcc@latest --hook' }]
+                }
+            ],
+            PreToolUse: [
+                {
+                    _tag: 'ccstatusline-managed',
+                    matcher: 'Skill',
+                    hooks: [{ type: 'command', command: 'npx -y dashcc@latest --hook' }]
                 }
             ]
         });

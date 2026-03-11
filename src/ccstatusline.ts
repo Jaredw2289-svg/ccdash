@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import chalk from 'chalk';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 
 import { runTUI } from './tui';
@@ -38,12 +37,18 @@ import {
     renderStatusLine
 } from './utils/renderer';
 import { advanceGlobalSeparatorIndex } from './utils/separator-index';
-import { getDashboardState } from './utils/session-state';
 import {
-    readLastSessionId,
-    writeLastSessionId,
-    writeSessionStatusFile
-} from './utils/session-status-file';
+    CLAUDE_ENV_FILE_ENV_VAR,
+    writeSessionEnvFile
+} from './utils/session-env';
+import {
+    deriveProjectCwd,
+    recordCurrentSessionPointer,
+    recordRecentSession,
+    resolveSessionIdForWrite
+} from './utils/session-resolution';
+import { getDashboardState } from './utils/session-state';
+import { writeSessionStatusFile } from './utils/session-status-file';
 import {
     getSkillsFilePath,
     getSkillsMetrics
@@ -55,33 +60,6 @@ import {
 import { prefetchUsageDataIfNeeded } from './utils/usage-prefetch';
 
 const UPDATE_MESSAGE_COLOR = 'hex:D7A65F';
-
-function getInputCachePath(): string {
-    const homeDir = process.env.HOME?.trim() ?? os.homedir();
-    return path.join(homeDir, '.cache', 'ccdash', 'last-input.json');
-}
-
-function readCachedInput(): string | null {
-    try {
-        const cachePath = getInputCachePath();
-        if (!fs.existsSync(cachePath)) {
-            return null;
-        }
-        return fs.readFileSync(cachePath, 'utf-8');
-    } catch {
-        return null;
-    }
-}
-
-function writeCachedInput(jsonInput: string): void {
-    try {
-        const cachePath = getInputCachePath();
-        fs.mkdirSync(path.dirname(cachePath), { recursive: true });
-        fs.writeFileSync(cachePath, jsonInput, 'utf-8');
-    } catch {
-        // Ignore cache write failures
-    }
-}
 
 function hasSessionDurationInStatusJson(data: StatusJSON): boolean {
     const durationMs = data.cost?.total_duration_ms;
@@ -311,10 +289,33 @@ function parseConfigArg(): string | undefined {
 
 interface HookInput {
     session_id?: string;
+    cwd?: string;
+    transcript_path?: string;
+    workspace?: {
+        current_dir?: string;
+        project_dir?: string;
+    };
     hook_event_name?: string;
     tool_name?: string;
     tool_input?: { skill?: string };
     prompt?: string;
+}
+
+function recordSessionActivity(
+    sessionId: string,
+    cwd?: string | null,
+    transcriptPath?: string | null
+): void {
+    recordRecentSession({
+        sessionId,
+        cwd,
+        transcriptPath: transcriptPath ?? null
+    });
+    recordCurrentSessionPointer({
+        sessionId,
+        cwd,
+        transcriptPath: transcriptPath ?? null
+    });
 }
 
 function getArgValue(flag: string): string | undefined {
@@ -332,12 +333,20 @@ function getArgValue(flag: string): string | undefined {
 }
 
 function handleWriteSessionStatus(): void {
-    const sessionId = getArgValue('--session') ?? readLastSessionId();
+    const sessionResolution = resolveSessionIdForWrite({
+        explicitSessionId: getArgValue('--session'),
+        cwd: process.cwd()
+    });
     const goal = getArgValue('--focus') ?? getArgValue('--goal');
     const now = getArgValue('--step') ?? getArgValue('--now');
 
-    if (!sessionId) {
-        console.error('--write-session-status: no session ID (provide --session or ensure hook has run)');
+    if (sessionResolution.kind === 'missing-cwd' || sessionResolution.kind === 'not-found') {
+        console.error('--write-session-status: no recent Claude session found for this project (provide --session or wait for the statusline hook to render here)');
+        process.exit(1);
+    }
+
+    if (sessionResolution.kind === 'ambiguous') {
+        console.error(`--write-session-status: multiple recent Claude sessions found for this project; rerun with --session <id> (${sessionResolution.sessionIds.join(', ')})`);
         process.exit(1);
     }
 
@@ -346,11 +355,28 @@ function handleWriteSessionStatus(): void {
         process.exit(1);
     }
 
-    const result = writeSessionStatusFile(sessionId, {
+    const result = writeSessionStatusFile(sessionResolution.sessionId, {
         goal,
         now
     });
     console.log(JSON.stringify(result));
+}
+
+function handleSessionStart(
+    data: HookInput,
+    sessionId: string,
+    projectCwd: string | null
+): void {
+    const envFilePath = process.env[CLAUDE_ENV_FILE_ENV_VAR]?.trim();
+    if (!envFilePath) {
+        return;
+    }
+
+    writeSessionEnvFile(envFilePath, {
+        sessionId,
+        transcriptPath: data.transcript_path ?? null,
+        projectDir: projectCwd
+    });
 }
 
 async function handleHook(): Promise<void> {
@@ -362,13 +388,23 @@ async function handleHook(): Promise<void> {
     try {
         const data = JSON.parse(input) as HookInput;
         const sessionId = data.session_id;
+        const projectCwd = deriveProjectCwd(data);
         if (!sessionId) {
             console.log('{}');
             return;
         }
 
-        // Always cache session ID for --write-session-status fallback
-        writeLastSessionId(sessionId);
+        recordSessionActivity(
+            sessionId,
+            projectCwd,
+            data.transcript_path ?? null
+        );
+
+        if (data.hook_event_name === 'SessionStart') {
+            handleSessionStart(data, sessionId, projectCwd);
+            console.log('{}');
+            return;
+        }
 
         let skillName = '';
         if (data.hook_event_name === 'PreToolUse' && data.tool_name === 'Skill') {
@@ -385,8 +421,6 @@ async function handleHook(): Promise<void> {
         }
 
         const filePath = getSkillsFilePath(sessionId);
-        const fs = await import('fs');
-        const path = await import('path');
         fs.mkdirSync(path.dirname(filePath), { recursive: true });
         const entry = JSON.stringify({
             timestamp: new Date().toISOString(),
@@ -414,16 +448,16 @@ function printSetup(): void {
      }
    }
 
-2. Add to your project's CLAUDE.md (for session focus/step updates):
+2. Add to your project's CLAUDE.md (for session goal/now updates):
 
    ## Session Dashboard Status
    After every response, update the per-session dashboard state.
-   Always write \`--step\`, and only write \`--focus\` when the session focus actually changes:
+   Always write \`--now\`, and only write \`--goal\` when the session goal actually changes:
    \`\`\`
-   bun run src/ccstatusline.ts --write-session-status --step "<high-level step summary>" --focus "<stable session focus>"
+   bun run src/ccstatusline.ts --write-session-status --now "<high-level step summary>" --goal "<stable session focus>"
    \`\`\`
    Keep both summaries high-level, one line, and under 120 characters.
-   Session ID is auto-resolved from the hook cache.
+   New sessions automatically export \`CCDASH_SESSION_ID\`, \`CCDASH_TRANSCRIPT_PATH\`, and \`CCDASH_PROJECT_DIR\`. Already-open sessions may need restart/resume to pick these up. When env vars are unavailable, dashcc falls back to the current-session pointer, then the project cache if exactly one recent session exists.
 
 3. Start Claude Code - the status bar will appear automatically.
 
@@ -475,7 +509,7 @@ async function main() {
 
         // We're receiving piped input
         const input = await readStdin();
-        const jsonInput = (input && input.trim() !== '') ? input.trim() : readCachedInput();
+        const jsonInput = (input && input.trim() !== '') ? input.trim() : null;
 
         if (jsonInput) {
             try {
@@ -485,12 +519,12 @@ async function main() {
                     process.exit(1);
                 }
 
-                // Cache the raw JSON for future fallback re-renders
-                writeCachedInput(jsonInput);
-
-                // Cache session ID so --write-session-status can find it
                 if (result.data.session_id) {
-                    writeLastSessionId(result.data.session_id);
+                    recordSessionActivity(
+                        result.data.session_id,
+                        deriveProjectCwd(result.data),
+                        result.data.transcript_path ?? null
+                    );
                 }
 
                 await renderMultipleLines(result.data);

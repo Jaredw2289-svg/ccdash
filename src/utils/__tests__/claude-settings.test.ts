@@ -160,6 +160,28 @@ describe('buildCommand via installStatusLine', () => {
         const claudeSettings = await loadClaudeSettings();
         expect(claudeSettings.statusLine?.command).toBe(installedCommand);
         const hooks = (claudeSettings.hooks ?? {}) as Record<string, unknown[]>;
+        expect(hooks.SessionStart).toEqual([
+            {
+                _tag: 'ccstatusline-managed',
+                matcher: 'startup',
+                hooks: [{ type: 'command', command: `${installedCommand} --hook` }]
+            },
+            {
+                _tag: 'ccstatusline-managed',
+                matcher: 'resume',
+                hooks: [{ type: 'command', command: `${installedCommand} --hook` }]
+            },
+            {
+                _tag: 'ccstatusline-managed',
+                matcher: 'clear',
+                hooks: [{ type: 'command', command: `${installedCommand} --hook` }]
+            },
+            {
+                _tag: 'ccstatusline-managed',
+                matcher: 'compact',
+                hooks: [{ type: 'command', command: `${installedCommand} --hook` }]
+            }
+        ]);
         expect(hooks.PreToolUse).toEqual([
             {
                 _tag: 'ccstatusline-managed',

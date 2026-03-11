@@ -14,6 +14,13 @@ export interface WidgetHookDef {
 }
 
 const HOOK_TAG = 'ccstatusline-managed';
+const ALWAYS_ON_HOOK_DEFS: WidgetHookDef[] = [
+    { event: 'SessionStart', matcher: 'startup' },
+    { event: 'SessionStart', matcher: 'resume' },
+    { event: 'SessionStart', matcher: 'clear' },
+    { event: 'SessionStart', matcher: 'compact' },
+    { event: 'UserPromptSubmit' }
+];
 
 interface HookEntry {
     _tag?: string;
@@ -34,6 +41,19 @@ function stripManagedHooks(hooks: Record<string, HookEntry[]>): void {
 function getActiveHookDefs(settings: Settings): WidgetHookDef[] {
     const seen = new Set<string>();
     const defs: WidgetHookDef[] = [];
+
+    const addHookDef = (hook: WidgetHookDef): void => {
+        const key = `${hook.event}:${hook.matcher ?? ''}`;
+        if (!seen.has(key)) {
+            seen.add(key);
+            defs.push(hook);
+        }
+    };
+
+    for (const hook of ALWAYS_ON_HOOK_DEFS) {
+        addHookDef(hook);
+    }
+
     for (const line of settings.lines) {
         for (const item of line) {
             const widget = getWidget(item.type) as (Widget & { getHooks?: () => WidgetHookDef[] }) | null;
@@ -41,11 +61,7 @@ function getActiveHookDefs(settings: Settings): WidgetHookDef[] {
                 continue;
             }
             for (const hook of widget.getHooks()) {
-                const key = `${hook.event}:${hook.matcher ?? ''}`;
-                if (!seen.has(key)) {
-                    seen.add(key);
-                    defs.push(hook);
-                }
+                addHookDef(hook);
             }
         }
     }

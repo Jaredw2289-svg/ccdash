@@ -294,7 +294,7 @@ Write it with:
 ${command} --write-session-status --now "<high-level now summary>" --goal "<stable session goal>"
 \`\`\`
 
-The session ID is automatically resolved from the hook cache — no \`--session\` flag or \`$SESSION_ID\` needed.
+New sessions automatically export \`CCDASH_SESSION_ID\`, \`CCDASH_TRANSCRIPT_PATH\`, and \`CCDASH_PROJECT_DIR\`. Already-open sessions may need restart or resume to pick these up. When env vars are unavailable, dashcc falls back to the current-session pointer and then the single-session project cache. If multiple recent sessions still exist and no env/pointer source is available, rerun with \`--session <id>\`.
 ${CLAUDE_MD_TAG_END}`;
 }
 
