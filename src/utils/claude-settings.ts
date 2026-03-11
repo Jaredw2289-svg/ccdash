@@ -5,6 +5,7 @@ import * as path from 'path';
 
 import type { ClaudeSettings } from '../types/ClaudeSettings';
 import {
+    DEFAULT_SETTINGS,
     SettingsSchema,
     type Settings
 } from '../types/Settings';
@@ -185,7 +186,7 @@ function buildCommand(baseCommand: string): string {
 async function loadSavedSettingsForHookSync(): Promise<Settings | null> {
     const configPath = getConfigPath();
     if (!fs.existsSync(configPath)) {
-        return null;
+        return DEFAULT_SETTINGS;
     }
 
     try {

@@ -12,6 +12,12 @@ interface TranscriptEntry {
     };
 }
 
+const SYSTEM_MARKER_RE = /^\[(?:Request interrupted|Tool interrupted|Interrupted|Error)/;
+
+function isSystemMarker(text: string): boolean {
+    return SYSTEM_MARKER_RE.test(text.trim());
+}
+
 function extractTextFromContent(content: { type?: string; text?: string }[] | string | undefined): string | null {
     if (typeof content === 'string') {
         return content.trim() || null;
@@ -161,7 +167,7 @@ export function getLastAssistantSummary(transcriptPath: string, maxLength: numbe
 
                 if (entry.type === 'human' || entry.message?.role === 'user') {
                     const text = extractTextFromContent(entry.message?.content);
-                    if (text) {
+                    if (text && !isSystemMarker(text)) {
                         return extractFirstSentence(text, maxLength);
                     }
                 }
@@ -287,7 +293,7 @@ export function getFirstUserSummary(transcriptPath: string, maxLength: number): 
 
                 if (entry.type === 'human' || entry.message?.role === 'user') {
                     const text = extractTextFromContent(entry.message?.content);
-                    if (text) {
+                    if (text && !isSystemMarker(text)) {
                         return extractSessionGoal(text, maxLength);
                     }
                 }

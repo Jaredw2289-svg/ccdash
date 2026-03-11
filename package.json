@@ -1,6 +1,6 @@
 {
   "name": "dashcc",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "A session dashboard status line for Claude Code CLI",
   "module": "src/ccstatusline.ts",
   "type": "module",

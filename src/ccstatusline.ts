@@ -487,6 +487,12 @@ async function main() {
 
                 // Cache the raw JSON for future fallback re-renders
                 writeCachedInput(jsonInput);
+
+                // Cache session ID so --write-session-status can find it
+                if (result.data.session_id) {
+                    writeLastSessionId(result.data.session_id);
+                }
+
                 await renderMultipleLines(result.data);
             } catch (error) {
                 console.error('Error parsing JSON:', error);

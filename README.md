@@ -17,6 +17,8 @@ A rich status bar for [Claude Code](https://claude.ai/code).
 
 ## Install
 
+> **Note:** Use `npx` — do not run `npm i dashcc` directly, as it may cause peer dependency conflicts.
+
 ```bash
 npx dashcc --install
 ```
