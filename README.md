@@ -39,6 +39,11 @@ npx dashcc
 
 Opens an interactive TUI to customize widgets, colors, layout, and more.
 
+## Related Tools
+
+- [`tkusage`](./tkusage/README.md) is the local usage reporting companion CLI for Claude Code, Codex, and OpenClaw.
+- Feature update: `tkusage` now supports OpenClaw daily token and cost reporting via `npx tkusage daily --source openclaw`.
+
 ## Responsive Terminal Behavior
 
 The default terminal width mode is now `Responsive stable`.

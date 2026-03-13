@@ -1,0 +1,42 @@
+{
+  "name": "tkusage",
+  "version": "0.1.6",
+  "description": "Unified local usage and cost estimation CLI for Claude Code, Codex, and OpenClaw",
+  "type": "module",
+  "bin": {
+    "tkusage": "dist/tkusage.js"
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && bun build src/index.ts --target=node --outfile=dist/tkusage.js --target-version=18",
+    "demo": "python3 scripts/generate-demo.py",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "bun run build",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "cli",
+    "usage",
+    "statusline"
+  ],
+  "homepage": "https://github.com/Jaredw2289-svg/ccdash/tree/main/tkusage",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jaredw2289-svg/ccdash.git",
+    "directory": "tkusage"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2",
+    "vitest": "^4.0.18"
+  }
+}
